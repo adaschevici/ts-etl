@@ -39,7 +39,7 @@ Solution TS is required. Any open source libraries which make life easier for yo
 
 ## How to deliver
 
-Upload the solution to GitHub.
+Upload the solution to GitHub, but **don't make PR to this repo. Send me the link / invite to the repository.**
 
 Make regular commits and pushes, so that we can see the evolution of the solution.
 
