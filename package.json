@@ -2,15 +2,24 @@
   "name": "etl-coding-assignment",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.ts",
   "scripts": {
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "lint": "bunx @biomejs/biome lint --write ./src ./tests",
+    "format": "bunx @biomejs/biome format --write ./src ./tests"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "commander": "^13.1.0",
+    "csv-parse": "^5.6.0"
+  },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "^1.2.13",
     "@types/node": "^20.14.10"
   }
 }
