@@ -7,7 +7,7 @@
   "scripts": {
     "start": "bun src/index.ts",
     "test": "bun test",
-    "lint": "bunx @biomejs/biome lint --write ./src ./tests",
+    "lint": "bunx @biomejs/biome lint --write --unsafe ./src ./tests",
     "format": "bunx @biomejs/biome format --write ./src ./tests"
   },
   "keywords": [],

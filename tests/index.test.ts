@@ -1,20 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, mock, spyOn, jest } from 'bun:test';
 import { InvalidArgumentError } from 'commander';
 import { Readable, Writable, Transform } from 'node:stream';
-import { ALLOWED_INPUT_TYPES, ALLOWED_OUTPUT_TYPES } from '../../src/types.js';
+import { ALLOWED_INPUT_TYPES, ALLOWED_OUTPUT_TYPES } from '../src/types.js';
 
-import { validateInputType, validateOutputType, runConversion } from '../../src/index.js';
+import { validateInputType, validateOutputType, runConversion } from '../src/index.js';
 
 // Mock internal dependencies
-mock.module('../../src/parsers/index.js', () => ({
+mock.module('../src/parsers/index.js', () => ({
   createParser: mock(),
 }));
-mock.module('../../src/renderers/index.js', () => ({
+mock.module('../src/renderers/index.js', () => ({
   createRenderer: mock(),
 }));
 
-import { createParser as mockedCreateParser } from '../../src/parsers/index.js';
-import { createRenderer as mockedCreateRenderer } from '../../src/renderers/index.js';
+import { createParser as mockedCreateParser } from '../src/parsers/index.js';
+import { createRenderer as mockedCreateRenderer } from '../src/renderers/index.js';
 
 const expectedInputTypesErrMsg = `Input type must be one of: ${ALLOWED_INPUT_TYPES.join(', ')}.`;
 const expectedOutputTypesErrMsg = `Output type must be one of: ${ALLOWED_OUTPUT_TYPES.join(', ')}.`;
@@ -118,13 +118,14 @@ describe('CLI Unit Tests - src/index.ts', () => {
       await runConversion(
         'csv',
         'json',
+        {},
         mockInputStream,
         mockOutputStream,
         mockPipelineFn,
       );
 
       expect(mockInputStream.setEncoding).toHaveBeenCalledWith('utf8');
-      expect(mockedCreateParser).toHaveBeenCalledWith('csv');
+      expect(mockedCreateParser).toHaveBeenCalledWith('csv', {});
       expect(mockedCreateRenderer).toHaveBeenCalledWith('json');
       expect(mockPipelineFn).toHaveBeenCalledWith(
         mockInputStream,
@@ -140,13 +141,14 @@ describe('CLI Unit Tests - src/index.ts', () => {
       await runConversion(
         'prn',
         'html',
+        {},
         mockInputStream,
         mockOutputStream,
         mockPipelineFn,
       );
 
       expect(mockInputStream.setEncoding).toHaveBeenCalledWith('utf8');
-      expect(mockedCreateParser).toHaveBeenCalledWith('prn');
+      expect(mockedCreateParser).toHaveBeenCalledWith('prn', {});
       expect(mockedCreateRenderer).toHaveBeenCalledWith('html');
       expect(mockPipelineFn).toHaveBeenCalledWith(
         mockInputStream,
@@ -163,7 +165,14 @@ describe('CLI Unit Tests - src/index.ts', () => {
       mockPipelineFn.mockRejectedValueOnce(error);
 
       await expect(
-        runConversion('csv', 'json', mockInputStream, mockOutputStream, mockPipelineFn),
+        runConversion(
+          'csv',
+          'json',
+          {},
+          mockInputStream,
+          mockOutputStream,
+          mockPipelineFn,
+        ),
       ).rejects.toThrow(error);
 
       expect(console.error).toHaveBeenCalledWith(
@@ -181,7 +190,14 @@ describe('CLI Unit Tests - src/index.ts', () => {
       mockPipelineFn.mockRejectedValueOnce(error);
 
       await expect(
-        runConversion('csv', 'json', mockInputStream, mockOutputStream, mockPipelineFn),
+        runConversion(
+          'csv',
+          'json',
+          {},
+          mockInputStream,
+          mockOutputStream,
+          mockPipelineFn,
+        ),
       ).rejects.toThrow(error);
 
       expect(console.error).toHaveBeenCalledWith(
