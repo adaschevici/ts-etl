@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { Readable } from 'node:stream';
+import { Transform } from 'node:stream';
 import { CsvParser } from '../../src/parsers/csvParser.js'; // Adjust path if necessary
 import type { ParsedRow, ConversionOptions } from '../../src/types.js'; // Adjust path
 // Import the ACTUAL normalization utilities. We are testing their integration with CsvParser.
@@ -7,25 +7,51 @@ import { EXPECTED_HEADERS, normalizeFieldValue } from '../../src/utils/normaliza
 
 // Helper function to stream data into CsvParser and collect the output
 async function collectStreamOutput(
-  parser: CsvParser,
+  parser: Transform, // Changed type to generic Transform for wider use if needed
   csvInput: string[] | string,
 ): Promise<{ data: ParsedRow[]; errors: Error[] }> {
   const data: ParsedRow[] = [];
   const errors: Error[] = [];
+  let resolved = false; // Flag to prevent multiple resolutions
 
-  return new Promise((resolve) => {
+  return new Promise((resolveFunc) => {
+    const resolve = (result: { data: ParsedRow[]; errors: Error[] }) => {
+      if (!resolved) {
+        resolved = true;
+        resolveFunc(result);
+      }
+    };
+
     parser.on('data', (row: ParsedRow) => data.push(row));
-    parser.on('error', (err: Error) => errors.push(err));
-    parser.on('end', () => resolve({ data, errors }));
+    parser.on('error', (err: Error) => {
+      errors.push(err);
+      resolve({ data, errors }); // Resolve immediately on error
+    });
+    parser.on('end', () => {
+      resolve({ data, errors }); // Resolve on end (if no error already resolved)
+    });
+    // 'close' is another event that signals the stream is definitely finished,
+    // especially if an error occurred and 'end' might not be emitted.
+    parser.on('close', () => {
+      resolve({ data, errors }); // Resolve on close (if not already resolved)
+    });
 
+    // Feed input to the parser
     if (Array.isArray(csvInput)) {
       for (const chunk of csvInput) {
+        if (parser.writableEnded) break; // Don't write if stream already ended/errored
         parser.write(chunk);
       }
     } else {
-      parser.write(csvInput);
+      if (!parser.writableEnded) {
+        parser.write(csvInput);
+      }
     }
-    parser.end();
+
+    // End the writable side of the parser if it hasn't been ended by an error
+    if (!parser.writableEnded) {
+      parser.end();
+    }
   });
 }
 
