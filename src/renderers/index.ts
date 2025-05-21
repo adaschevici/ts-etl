@@ -1,6 +1,7 @@
 import { Transform } from 'node:stream';
 import type { OutputType, ConversionOptions } from '../types.js'; // Adjust path as necessary
 import { HtmlRenderer } from './htmlRenderer.js'; // Adjust path to your HtmlRenderer
+import { JsonRenderer } from './jsonRenderer.js'; // Adjust path to your JsonRenderer
 import type {
   RendererRegistry,
   RendererConstructor,
@@ -54,3 +55,4 @@ export function createRenderer(outputType: OutputType): Transform {
 }
 
 registerRenderer('html', HtmlRenderer);
+registerRenderer('json', JsonRenderer);
