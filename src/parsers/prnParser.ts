@@ -94,8 +94,6 @@ export class PrnParser extends Transform {
       return;
     }
 
-    console.log(this.columnSpecs);
-
     const foundHeadersCount = this.columnSpecs.length;
     if (foundHeadersCount < EXPECTED_HEADERS.length && trimmedLine.length > 0) {
       const missing = EXPECTED_HEADERS.filter(
