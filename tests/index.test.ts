@@ -124,7 +124,7 @@ describe('CLI Unit Tests - src/index.ts', () => {
         mockPipelineFn,
       );
 
-      expect(mockInputStream.setEncoding).toHaveBeenCalledWith('utf8');
+      expect(mockInputStream.setEncoding).toHaveBeenCalledWith('latin1');
       expect(mockedCreateParser).toHaveBeenCalledWith('csv', {});
       expect(mockedCreateRenderer).toHaveBeenCalledWith('json');
       expect(mockPipelineFn).toHaveBeenCalledWith(
@@ -147,7 +147,7 @@ describe('CLI Unit Tests - src/index.ts', () => {
         mockPipelineFn,
       );
 
-      expect(mockInputStream.setEncoding).toHaveBeenCalledWith('utf8');
+      expect(mockInputStream.setEncoding).toHaveBeenCalledWith('latin1');
       expect(mockedCreateParser).toHaveBeenCalledWith('prn', {});
       expect(mockedCreateRenderer).toHaveBeenCalledWith('html');
       expect(mockPipelineFn).toHaveBeenCalledWith(
