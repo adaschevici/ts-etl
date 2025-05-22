@@ -1,5 +1,9 @@
 # Data format translation program
 
+## Notes
+
+1. The encoding of the files is `latin1` it should be converted to `utf-8` in a previous step of the pipeline for the stream to work with `utf-8` otherwise characters will be garbled
+
 ## The task
 
 Given are two files - both contain the same content - one is a CSV file the other is a PRN file,
