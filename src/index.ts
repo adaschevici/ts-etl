@@ -53,7 +53,7 @@ export async function runConversion(
 
   debugLog("Before sourceStream.setEncoding('utf8')");
   try {
-    sourceStream.setEncoding('utf8');
+    sourceStream.setEncoding('latin1');
     debugLog("After sourceStream.setEncoding('utf8') - SUCCESSFUL");
   } catch (e: any) {
     debugLog('ERROR during sourceStream.setEncoding:', e.message, e.stack);
