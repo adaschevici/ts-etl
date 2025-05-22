@@ -4,6 +4,19 @@
 
 1. The encoding of the files is `latin1` it should be converted to `utf-8` in a previous step of the pipeline for the stream to work with `utf-8` otherwise characters will be garbled
 
+2. I wanted to add some benchmark and memory usage tests which can be quite useful for observability, but I didn't get around to it.
+
+## Getting started
+
+```
+cat ./Workbook2.csv | bun src/index.ts csv html > csv.html.txt
+cat ./Workbook2.prn | bun src/index.ts prn html > prn.html.txt
+diff csv.html.txt prn.html.txt
+cat ./Workbook2.csv | bun src/index.ts csv json > csv.json.txt
+cat ./Workbook2.prn | bun src/index.ts prn json > prn.json.txt
+diff csv.json.txt prn.json.txt
+```
+
 ## The task
 
 Given are two files - both contain the same content - one is a CSV file the other is a PRN file,
