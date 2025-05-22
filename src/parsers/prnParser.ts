@@ -4,19 +4,8 @@ import {
   normalizeRow,
   EXPECTED_HEADERS,
   H_CREDIT_LIMIT,
+  // H_BIRTHDAY is not strictly needed here as normalizeFieldValue handles its PRN format
 } from '../utils/normalization.js'; // Assuming normalization.js is in ../utils/
-
-// --- Debug Logger Utility (copied from index.ts for standalone use if needed, or import it) ---
-const IS_DEBUG_MODE = Boolean(
-  process.env.DEBUG && process.env.DEBUG !== 'false' && process.env.DEBUG !== '0',
-);
-
-function prnDebugLog(...args: any[]): void {
-  if (IS_DEBUG_MODE) {
-    console.error('PRN_DEBUG:', ...args);
-  }
-}
-// --- End Debug Logger Utility ---
 
 interface ColumnSpec {
   name: string; // Canonical header name from EXPECTED_HEADERS
@@ -30,67 +19,52 @@ export class PrnParser extends Transform {
   private headerProcessed: boolean = false;
   private firstChunkProcessed: boolean = false;
 
+  /**
+   * Constructs a PrnParser instance.
+   * @param options - Conversion options, currently unused by PrnParser but included for consistency.
+   */
   constructor(options: ConversionOptions = {}) {
-    super({ objectMode: true });
-    prnDebugLog('PrnParser instantiated. Options:', options);
+    super({ objectMode: true }); // Output will be objects (ParsedRow)
   }
 
+  /**
+   * Processes the header line to determine column boundaries.
+   * This version robustly finds all expected headers and uses their start positions
+   * to define column boundaries.
+   * @param line - The header line from the PRN file.
+   */
   private processHeaderLine(line: string): void {
-    prnDebugLog(
-      `processHeaderLine received line (length ${line.length}):`,
-      JSON.stringify(line),
-    );
-    if (this.headerProcessed) {
-      prnDebugLog('Header already processed, returning.');
-      return;
-    }
+    if (this.headerProcessed) return;
 
-    const trimmedLine = line.trimEnd(); // Crucial: Do not trimStart for indexOf based on start positions
-    prnDebugLog(
-      `trimmedLine for header processing (length ${trimmedLine.length}):`,
-      JSON.stringify(trimmedLine),
-    );
+    const trimmedLine = line.trimEnd(); // Important to not trim start for indexOf
     this.columnSpecs = [];
 
     const foundHeaderPositions: { name: string; start: number }[] = [];
 
-    // Find all occurrences of EXPECTED_HEADERS first
+    // Find the starting position of each EXPECTED_HEADER in the trimmed header line.
+    // We search for them in the order they are defined in EXPECTED_HEADERS,
+    // advancing the search offset to ensure we find distinct occurrences if headers could be substrings of each other
+    // (though less likely with distinct full header names).
+    let currentSearchOffset = 0;
     for (const headerName of EXPECTED_HEADERS) {
-      let searchFrom = 0;
-      let foundIndex;
-      // Loop to find all occurrences in case a header string could appear multiple times (though unlikely for distinct headers)
-      // For this PRN, we expect each header once.
-      foundIndex = trimmedLine.indexOf(headerName, searchFrom); // Start search for each header from beginning for simplicity, then sort
-
-      if (foundIndex !== -1) {
-        // Check if this found header (by name) is already in foundHeaderPositions
-        // This is to handle cases where a shorter header name might be part of a longer one,
-        // and we want the longest specific match if possible, or just the first found.
-        // For now, we take the first one found. Sorting by start index later handles order.
-        if (!foundHeaderPositions.some((fh) => fh.name === headerName)) {
-          prnDebugLog(`Found header "${headerName}" at index ${foundIndex}`);
-          foundHeaderPositions.push({ name: headerName, start: foundIndex });
-        } else {
-          prnDebugLog(
-            `Header "${headerName}" already found, skipping subsequent match at ${foundIndex} (if any).`,
-          );
-        }
+      const startIndex = trimmedLine.indexOf(headerName, currentSearchOffset);
+      if (startIndex !== -1) {
+        foundHeaderPositions.push({ name: headerName, start: startIndex });
+        // Advance search offset past the beginning of the found header string to avoid re-matching parts of it
+        // if headers could be similar (e.g. "Date" and "Date Created").
+        // Using start of found header + 1 is a safe bet.
+        currentSearchOffset = startIndex + 1;
       } else {
-        prnDebugLog(`Warning: Expected header "${headerName}" not found in header line.`);
+        console.warn(
+          `PRN Parser Warning: Expected header "${headerName}" not found in header line: "${trimmedLine}" (searched from index ${currentSearchOffset - 1}).`,
+        );
       }
     }
 
-    prnDebugLog(
-      'Found header positions (before sort):',
-      JSON.stringify(foundHeaderPositions),
-    );
-
-    // Sort the found headers by their start index. This is crucial.
+    // Sort the found headers by their start index. This is crucial if the PRN file
+    // could have headers in a different order than EXPECTED_HEADERS, or if the
+    // indexOf search above wasn't strictly sequential (though it is now).
     foundHeaderPositions.sort((a, b) => a.start - b.start);
-    prnDebugLog(
-      'Found header positions (after sort):',
-      JSON.stringify(foundHeaderPositions),
-    );
 
     // Now, build the columnSpecs using the sorted found headers.
     // The end of one column is the start of the next found column.
@@ -98,7 +72,6 @@ export class PrnParser extends Transform {
       const currentHeader = foundHeaderPositions[i];
       let endIndex: number;
       if (i < foundHeaderPositions.length - 1) {
-        // End is the start of the next physically appearing header in the sorted list
         endIndex = foundHeaderPositions[i + 1].start;
       } else {
         // This is the last header found; it extends to the end of the line.
@@ -110,8 +83,6 @@ export class PrnParser extends Transform {
         end: endIndex,
       });
     }
-
-    prnDebugLog('Final columnSpecs:', JSON.stringify(this.columnSpecs));
 
     if (this.columnSpecs.length === 0 && trimmedLine.length > 0) {
       this.emit(
@@ -130,68 +101,58 @@ export class PrnParser extends Transform {
       );
       if (missing.length > 0) {
         console.warn(
-          `PRN Parser Warning: Not all EXPECTED_HEADERS were mapped to columns. Missing/unmapped: ${missing.join(', ')}`,
+          `Not all EXPECTED_HEADERS were found or mapped. Missing/unmapped: ${missing.join(', ')}`,
         );
       }
     }
+
     this.headerProcessed = true;
   }
 
+  /**
+   * Processes a data line using the derived column specifications.
+   * @param line - A data line from the PRN file.
+   */
   private processDataLine(line: string): void {
-    prnDebugLog(
-      `processDataLine received line (length ${line.length}):`,
-      JSON.stringify(line.substring(0, 100)) + '...',
-    ); // Log start of line
     if (line.trim() === '') {
-      if (this.headerProcessed) return;
+      if (this.headerProcessed) return; // Skip empty lines only after header is processed
     }
 
     const rawRecordIntermediate: Record<string, string> = {};
 
     for (const spec of this.columnSpecs) {
-      prnDebugLog(
-        `Processing spec: ${spec.name}, start: ${spec.start}, end: ${spec.end}`,
-      );
       const valueSlice =
         spec.start < line.length
           ? line.substring(spec.start, Math.min(spec.end, line.length))
           : '';
-      prnDebugLog(`  -> valueSlice for ${spec.name}:`, JSON.stringify(valueSlice));
       let extractedValue = valueSlice.trim();
-      prnDebugLog(
-        `  -> extractedValue (trimmed) for ${spec.name}:`,
-        JSON.stringify(extractedValue),
-      );
 
       if (spec.name === H_CREDIT_LIMIT) {
         const creditInt = parseInt(extractedValue, 10);
         if (!isNaN(creditInt)) {
           extractedValue = (creditInt / 100).toFixed(2);
         } else {
-          extractedValue = '';
+          extractedValue = ''; // Let normalizeFieldValue handle default
         }
-        prnDebugLog(
-          `  -> Credit Limit after pre-processing:`,
-          JSON.stringify(extractedValue),
-        );
       }
       rawRecordIntermediate[spec.name] = extractedValue;
     }
 
-    prnDebugLog(
-      'Raw record intermediate before normalizeRow:',
-      JSON.stringify(rawRecordIntermediate),
-    );
     const normalizedRecord = normalizeRow(rawRecordIntermediate, EXPECTED_HEADERS);
-    prnDebugLog('Pushing normalized record:', JSON.stringify(normalizedRecord));
     this.push(normalizedRecord);
   }
 
+  /**
+   * Handles a line of text from the input stream.
+   * @param line - The line to process.
+   */
   private handleLine(line: string): void {
     if (!this.headerProcessed) {
       if (line.trim() !== '') {
         this.processHeaderLine(line);
       }
+      // If it was the header line or an empty line before header, don't process as data.
+      // If processHeaderLine emitted an error, the stream might stop anyway.
       return;
     }
     this.processDataLine(line);
@@ -203,13 +164,7 @@ export class PrnParser extends Transform {
     callback: (error?: Error | null, data?: any) => void,
   ): void {
     this.firstChunkProcessed = true;
-    const stringChunk = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
-    prnDebugLog(
-      `_transform received chunk (length ${stringChunk.length}), type: ${typeof chunk}. First 50 chars:`,
-      JSON.stringify(stringChunk.substring(0, 50)),
-    );
-
-    this.buffer += stringChunk;
+    this.buffer += chunk.toString();
     let newlineIndex;
     while ((newlineIndex = this.buffer.indexOf('\n')) >= 0) {
       const line = this.buffer.substring(0, newlineIndex);
@@ -220,15 +175,13 @@ export class PrnParser extends Transform {
   }
 
   _flush(callback: (error?: Error | null, data?: any) => void): void {
-    prnDebugLog('_flush called. Remaining buffer length:', this.buffer.length);
     if (this.buffer.length > 0) {
       this.handleLine(this.buffer);
       this.buffer = '';
     }
     if (!this.firstChunkProcessed && !this.headerProcessed) {
-      prnDebugLog('Flushing an empty/unprocessed stream.');
+      // Correctly handles empty input.
     }
-    prnDebugLog('PrnParser flush complete.');
     callback();
   }
 }
